@@ -33,6 +33,7 @@ jobs:
           xcodebuild \
             -project firefox-ios/Client.xcodeproj \
             -scheme Fennec \
+            -skipMacroValidation \
             -configuration Debug \
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
