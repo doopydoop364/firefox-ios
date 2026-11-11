@@ -1,0 +1,58 @@
+name: Build Firefox IPA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/build-ipa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: xcode-27
+    timeout-minutes: 120
+    steps:
+      - name: Checkout Firefox source
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Bootstrap dependencies
+        run: bash ./bootstrap.sh
+
+      - name: Build unsigned iOS app
+        run: |
+          xcodebuild \
+            -project firefox-ios/Client.xcodeproj \
+            -scheme Fennec \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          APP=$(find "$RUNNER_TEMP/DerivedData/Build/Products" -maxdepth 2 -name '*.app' -type d | grep 'iphoneos/' | head -n 1)
+          test -n "$APP"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry Firefox-unsigned.ipa Payload
+          test -s Firefox-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Firefox-unsigned-IPA
+          path: Firefox-unsigned.ipa
+          if-no-files-found: error
